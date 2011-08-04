@@ -2,9 +2,6 @@
 
 function [X C I out] = hev_b(inp,par)
 
-
-global scale_em scale_eng n_s n_p m_v
-%function [X C I out] = hev(inp,par)
 %HEV Computes the resulting state-of-charge based on current state-
 %   of-charge, inputs and drive cycle demand.
 %   
@@ -23,14 +20,14 @@ global scale_em scale_eng n_s n_p m_v
 %   wheel radius            = 0.28 m
 %   rolling friction        = 1.5/100 *vehicle mass*g N
 %   aerodynamic coefficient = 0.36 Ns^2/m^2
-%   vehicle mass            = m_v kg
+%   vehicle mass            = par.m_v kg
 %
 % Wheel speed (rad/s)
 wv  = inp.W{1} ./ 0.28;
 % Wheel acceleration (rad/s^2)
 dwv = inp.W{2} ./ 0.28;
 % Wheel torque (Nm)
-Tv = ((m_v*0.015*9.81) + 0.36.*inp.W{1}.^2 + 1729.*inp.W{2}) .* 0.28;
+Tv = ((par.m_v*0.015*9.81) + 0.36.*inp.W{1}.^2 + 1729.*inp.W{2}) .* 0.28;
 
 % TRANSMISSION
 %   gearbox efficiency = 0.95
@@ -53,7 +50,7 @@ fc_map_spd=[750:250:4500]*pi/30;
 fc_map_trq=[14.5 29 43.5 58 72.5 87 101.5 116 130.5 145 159.5 174 179.8];
 fc_max_trq=[6.18 8.24 9.09 10.24 11.57 12.24 12.42 12.3 12.24 12.24 12.12 12 11.6 11 10 8.55]*14.5;
 
-Te0_list = [20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20]*scale_eng;
+Te0_list = [20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20]*par.scale_eng;
 we_list  = fc_map_spd;
 % Engine drag torque (Nm)
 Te0  = dwg * 0.1 + interp1(we_list,Te0_list,min(max(wg,we_list(1)),we_list(end)));
@@ -94,15 +91,15 @@ w_eng(w_eng>=471) = 471;
 T_eng = Te;
 T_eng(T_eng<=15) = 15;
 % fuel consumption map in g/s
-[T,w]=meshgrid(fc_map_trq*scale_eng,fc_map_spd);
+[T,w]=meshgrid(fc_map_trq*par.scale_eng,fc_map_spd);
 fc_map_kW=T.*w/1000;
 fc_fuel_map=fc_fuel_map_gpkWh.*fc_map_kW/3600;
 % engine internal efficiency
 % eta  = [0.423 0.4215 0.420 0.433 0.446 0.4455 0.445 0.4455 0.446 0.446 0.4455 0.445 0.4425 0.440 0.4315 0.423];
 % maximum engine 
-Tmax = fc_max_trq*scale_eng;
+Tmax = fc_max_trq*par.scale_eng;
 % fuel consumption per s
-e_gs = interp2(fc_map_trq*scale_eng,fc_map_spd,fc_fuel_map,Te,w_eng.*ones(size(Te)));
+e_gs = interp2(fc_map_trq*par.scale_eng,fc_map_spd,fc_fuel_map,Te,w_eng.*ones(size(Te)));
 e_gs(isnan(e_gs)) = 0;
 % Engine efficiency (function of speed)
 % e_th = interp1(we_list,eta,w_eng,'linear*','extrap');
@@ -121,11 +118,11 @@ ine = (Te > Te_max);
 red     = 0.5625;
 wm_list = [0 500 1000 1500 2000 2500 3000 3500 4000 4500 5000 5500 6000 6500 7000 7500 8000]*(2*pi/60);
 % motor torque list
-Tm_list = [0 10 20 30 40 50 60 70 80 90 100 110 120 130 140 150 160 170 180 190 200 210 220]*scale_em;
+Tm_list = [0 10 20 30 40 50 60 70 80 90 100 110 120 130 140 150 160 170 180 190 200 210 220]*par.scale_em;
 % motor maximum torque (indexed by speed list)
-Tmmax   = 0.7111*[200 202 209 209 206 170 130 118 100 90 80 71 68 61 53 52 50]*scale_em;
+Tmmax   = 0.7111*[200 202 209 209 206 170 130 118 100 90 80 71 68 61 53 52 50]*par.scale_em;
 % motor minimum torque (indexed by speed list)
-Tmmin   = -1*0.7111*[200 202 209 209 206 170 130 118 100 90 80 71 68 61 53 52 50]*scale_em;
+Tmmin   = -1*0.7111*[200 202 209 209 206 170 130 118 100 90 80 71 68 61 53 52 50]*par.scale_em;
 % motor efficiency map (indexed by speed list and torque list)
 etam    = 0.01*[...
       70    75    78    77    73    72    70    68    66    65    60    59    58    55    52    50    49   48	47	 46	  45	44	  43
@@ -158,11 +155,11 @@ Pm =  (Tm<0) .* wg.*Tm.*e + (Tm>=0) .* wg.*Tm./e;
 % state-of-charge list
 soc_list = 0:0.1:1;
 % discharging resistance (indexed by state-of-charge list)
-R_dis    = [0.0377	0.0338	0.0300	0.0280	0.0275	0.0268	0.0269	0.0273	0.0283	0.0298	0.0312]*n_s/n_p; % ohm
+R_dis    = [0.0377	0.0338	0.0300	0.0280	0.0275	0.0268	0.0269	0.0273	0.0283	0.0298	0.0312]*par.n_s/par.n_p; % ohm
 % charging resistance (indexed by state-of-charge list)
-R_chg    = [0.0235	0.0220	0.0205	0.0198	0.0198	0.0196	0.0198	0.0197	0.0203	0.0204	0.0204]*n_s/n_p; % ohm
+R_chg    = [0.0235	0.0220	0.0205	0.0198	0.0198	0.0196	0.0198	0.0197	0.0203	0.0204	0.0204]*par.n_s/par.n_p; % ohm
 % open circuit voltage (indexed by state-of-charge list)
-V_oc     = [7.2370	7.4047	7.5106	7.5873	7.6459	7.6909	7.7294	7.7666	7.8078	7.9143	8.3645]*n_s*scale_em; % volt
+V_oc     = [7.2370	7.4047	7.5106	7.5873	7.6459	7.6909	7.7294	7.7666	7.8078	7.9143	8.3645]*par.n_s*par.scale_em; % volt
 
 % Battery efficiency
 % columbic efficiency (0.9050 when charging)
@@ -172,16 +169,16 @@ r = (Pm>0)  .* interp1(soc_list, R_dis, inp.X{1},'linear*','extrap')...
   + (Pm<=0) .* interp1(soc_list, R_chg, inp.X{1},'linear*','extrap');
 
 % Battery current limitations
-%   battery capacity            = 6*n_p Ah 
-%   maximum discharging current = 63*n_p A
-%   maximum charging current    = 60*n_p A
-im = (Pm>0) .* 63*n_p + (Pm<=0) .* 60*n_p;
+%   battery capacity            = 6*par.n_p Ah 
+%   maximum discharging current = 63*par.n_p A
+%   maximum charging current    = 60*par.n_p A
+im = (Pm>0) .* 63*par.n_p + (Pm<=0) .* 60*par.n_p;
 % Battery voltage
 v = interp1(soc_list, V_oc, inp.X{1},'linear*','extrap');
 % Battery current
 Ib  =   e .* (v-sqrt(v.^2 - 4.*r.*Pm))./(2.*r);
 % New battery state of charge
-X{1}  = - Ib / (6*n_p* 3600) + inp.X{1};
+X{1}  = - Ib / (6*par.n_p* 3600) + inp.X{1};
 % Battery power consumption
 Pb =   Ib .* v;
 % Update infeasible 

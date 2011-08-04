@@ -1,14 +1,34 @@
 % Start clean
 clear all; close all; clc
 
-% Set globals
-global scale_em scale_eng n_s n_p m_v
-
-% load models
-load FTP_75;run FC_CI67;
+% load drive cycle
+load FTP_75;
 speed_vector = V_z;
 acceleration_vector = [0;diff(V_z)];
 gearnumber_vector = G_z;
+
+% load engine model
+run FC_CI67;
+
+% load motor model
+run MC_PM32evs
+
+% load battery model
+run ESS_NIMH6
+
+%% Fixed parameters
+
+par.Eta_gb = 0.95; %[-]
+par.R_w    = 0.28; %[m]
+par.c_r    = 1.5/100;  %[%]
+par.c_d    = 0.3;  %[-]
+par.Af     = 2;    %[m^2]
+par.rho    = 1.2;  %[kg/m^3]
+par.g      = 9.81; %[m/s^2]
+
+par.t_slip = 0.2;  % slip time when shifting [s]
+
+par.r_em = 1.4925; % reduction gear electric motor
 
 %% Scaling
 
@@ -16,24 +36,31 @@ gearnumber_vector = G_z;
 Pmot = 61;
 Peng = 61;
 
+par.hf = Pmot/(Pmot+Peng);
+
 % Calculate scale factors
-scale_eng = Peng/67;
-scale_em = Pmot/32;
+par.scale_eng = Peng/67;
+par.scale_em = Pmot/32;
 
 % Set battery scaling
-n_s      = 43;
-n_p      = 4;
+par.n_s      = 43;
+par.n_p      = 4;
 
-% Set vehicle mass
-m_v      = 1729;
+% Vehicle mass
+m_0    = 1300; %[kg]
+m_ice  = (fc_base_mass+fc_acc_mass)*par.scale_eng; %[kg]
+m_em   = mc_mass*par.scale_em;
+m_bat  = ess_module_mass*par.n_s*par.n_p; %[kg]
+    
+par.m_v = m_0 + m_ice + m_em + m_bat; %[kg]
 
+par
 
 %% Setup DP
 
 % create grid
 % state is SOC
-%grd.Nx{1}    = 187;   % Number of SOC grid points 
-grd.Nx{1} = 50;
+grd.Nx{1}    = 187;   % Number of SOC grid points 
 grd.Xn{1}.hi = 0.7;   % upper value for SOC
 grd.Xn{1}.lo = 0.4;   % lower value for SOC
 
@@ -59,54 +86,18 @@ prb.N  = 1876*1/prb.Ts + 1;
 
 % set options
 options = dpm();
-options.UseLine = 1;
+options.UseLine = 0;
 options.SaveMap = 0;
 options.Iter = 5;
 options.InputType = 'd';
 options.FixedGrid = 0;
-[res dyn] = dpm(@hev_b,[],grd,prb,options);
 
-% Outputs
-SOC = res.X{1,1};
-time = [0: 1877];
+% run DP function
+[res dyn] = dpm(@hev_b,par,grd,prb,options);
 
-% Figures
-% SOC
-figure
-plot(time,SOC)
-title('state of charge')
-xlabel('time [s]')
-ylabel('SOC [-]')
+% Define time vector
+time = [0: prb.N];
 
-% Fuel consumption
-figure
-plot(time(1:end-1),cumsum(res.m_dot_fuel))
-title('vehicle fuel consumption')
-xlabel('time [s]')
-ylabel('fuel used [kg]')
-
-% electric motor power vs drive power
-figure
-plot(time(1:end-1), res.Pb,'b')
-hold on 
-plot(time(1:end-1), res.Ttot.*res.wg,'r')
-
-% plotting the Engine map
-figure
-title('Engine Map')
-xlabel('\omega [rad/s]')
-ylabel('Torque [Nm]')
-hold on
-ei = [0:5:230 230:10:260 260:20:300 300:50:400 400:100:1200];
-we_list  = [78.54 104.72 130.90 157.08 183.26 209.44 235.62 261.80 287.98 314.16 340.34 366.52 392.70 418.88 445.06 471.24];
-Tmax = [89.61 119.48 131.81 148.48 167.77 177.48 180.09 178.35 177.48 177.48 175.74 174 168.2 159.5 145 123.98];
-plot(we_list,Tmax*scale_eng,'Color',[0 0 0],'LineWidth',2) 
-%axis([75 475 0 210]);
-hold on
-plot(res.w_eng,res.Te,'o')
-hold on
-[c,h] = contour(fc_map_spd,fc_map_trq*scale_eng,fc_fuel_map_gpkWh',ei);
-set(h,'ShowText','on','TextStep',get(h,'LevelStep')*2);
-fill([0,fc_map_spd fc_map_spd(end)],[max(fc_max_trq*scale_eng)+100 fc_max_trq*scale_eng max(fc_max_trq*scale_eng)+100],'w');
-axis ([min(fc_map_spd) max(fc_map_spd) 0 max(fc_max_trq)*scale_eng]);
-
+% Save results
+mkdir('output');
+save(strcat('output/results_', num2str(par.hf,1), '.mat'), 'res', 'par', 'time');
