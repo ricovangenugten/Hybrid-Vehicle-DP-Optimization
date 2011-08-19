@@ -1,10 +1,10 @@
-%% Script to process dpm results
+% Script to process dpm results
 
 % Start clean
 clear all; close all; clc
 
 % load file
-results_file = 'output/results_0.5.mat'
+results_file = 'output/results_0.84.mat'
 load(results_file);
 
 % load engine model
@@ -30,8 +30,8 @@ ylabel('fuel used [kg]')
 figure
 plot(time(1:end-1), res.Pb,'b')
 hold on 
-plot(time(1:end-1), res.Ttot.*res.wg,'r')
-legend('electric', 'ice')
+plot(time(1:end-1), res.Te.*res.wg,'r')
+legend('motor', 'engine')
 
 % plotting the Engine map
 figure

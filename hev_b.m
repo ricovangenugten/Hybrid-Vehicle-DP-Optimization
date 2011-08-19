@@ -16,18 +16,12 @@ function [X C I out] = hev_b(inp,par)
 %   out   = user defined output signals
 
 
-% VEHICLE
-%   wheel radius            = 0.28 m
-%   rolling friction        = 1.5/100 *vehicle mass*g N
-%   aerodynamic coefficient = 0.36 Ns^2/m^2
-%   vehicle mass            = par.m_v kg
-%
 % Wheel speed (rad/s)
 wv  = inp.W{1} ./ 0.28;
 % Wheel acceleration (rad/s^2)
 dwv = inp.W{2} ./ 0.28;
-% Wheel torque (Nm)
-Tv = ((par.m_v*0.015*9.81) + 0.36.*inp.W{1}.^2 + 1729.*inp.W{2}) .* 0.28;
+% Wheel torque (Nm) friction + air + 
+Tv = (par.m_v*par.c_r*par.g + 0.5*par.rho*par.Af*par.c_d.*inp.W{1}.^2 + par.m_v.*inp.W{2}) .* par.R_w;
 
 % TRANSMISSION
 %   gearbox efficiency = 0.95
@@ -50,14 +44,11 @@ fc_map_spd=[750:250:4500]*pi/30;
 fc_map_trq=[14.5 29 43.5 58 72.5 87 101.5 116 130.5 145 159.5 174 179.8];
 fc_max_trq=[6.18 8.24 9.09 10.24 11.57 12.24 12.42 12.3 12.24 12.24 12.12 12 11.6 11 10 8.55]*14.5;
 
-Te0_list = [20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20]*par.scale_eng;
-we_list  = fc_map_spd;
-% Engine drag torque (Nm)
-Te0  = dwg * 0.1 + interp1(we_list,Te0_list,min(max(wg,we_list(1)),we_list(end)));
-% Electric motor drag torque (Nm)
-Tm0  = dwg * 0.03;
+Te0_list = [20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20];
+% Engine drag torque (Nm), when outside engine speed range limit
+Te0  = interp1(fc_map_spd,Te0_list,min(max(wg,fc_map_spd(1)),fc_map_spd(end)));
 % Total required torque (Nm)
-Ttot = Te0.*(inp.U{1}~=1) + Tm0 + Tg;
+Ttot = Te0.*(inp.U{1}~=1) + Tg;
 % Torque provided by engine
 Te  = (wg>0) .* (Ttot>0)  .* (1-inp.U{1}).*Ttot;
 Tb  = (wg>0) .* (Ttot<=0) .* (1-inp.U{1}).*Ttot;
@@ -94,20 +85,15 @@ T_eng(T_eng<=15) = 15;
 [T,w]=meshgrid(fc_map_trq*par.scale_eng,fc_map_spd);
 fc_map_kW=T.*w/1000;
 fc_fuel_map=fc_fuel_map_gpkWh.*fc_map_kW/3600;
-% engine internal efficiency
-% eta  = [0.423 0.4215 0.420 0.433 0.446 0.4455 0.445 0.4455 0.446 0.446 0.4455 0.445 0.4425 0.440 0.4315 0.423];
 % maximum engine 
 Tmax = fc_max_trq*par.scale_eng;
 % fuel consumption per s
 e_gs = interp2(fc_map_trq*par.scale_eng,fc_map_spd,fc_fuel_map,Te,w_eng.*ones(size(Te)));
 e_gs(isnan(e_gs)) = 0;
-% Engine efficiency (function of speed)
-% e_th = interp1(we_list,eta,w_eng,'linear*','extrap');
 % Fuel mass flow (function of power and efficiency)
 m_dot_fuel = e_gs./1000;
-% m_dot_fuel = Te.*w_eng./e_th./42426000;
 % Maximum engine torque
-Te_max = interp1(we_list,Tmax,w_eng,'linear*','extrap');
+Te_max = interp1(fc_map_spd,Tmax,w_eng,'linear*','extrap');
 % Fuel power consumption
 Pe = m_dot_fuel .* 42426000;
 % Calculate infeasible
@@ -159,7 +145,7 @@ R_dis    = [0.0377	0.0338	0.0300	0.0280	0.0275	0.0268	0.0269	0.0273	0.0283	0.029
 % charging resistance (indexed by state-of-charge list)
 R_chg    = [0.0235	0.0220	0.0205	0.0198	0.0198	0.0196	0.0198	0.0197	0.0203	0.0204	0.0204]*par.n_s/par.n_p; % ohm
 % open circuit voltage (indexed by state-of-charge list)
-V_oc     = [7.2370	7.4047	7.5106	7.5873	7.6459	7.6909	7.7294	7.7666	7.8078	7.9143	8.3645]*par.n_s*par.scale_em; % volt
+V_oc     = [7.2370	7.4047	7.5106	7.5873	7.6459	7.6909	7.7294	7.7666	7.8078	7.9143	8.3645]*par.n_s; % volt
 
 % Battery efficiency
 % columbic efficiency (0.9050 when charging)
@@ -175,14 +161,14 @@ r = (Pm>0)  .* interp1(soc_list, R_dis, inp.X{1},'linear*','extrap')...
 im = (Pm>0) .* 63*par.n_p + (Pm<=0) .* 60*par.n_p;
 % Battery voltage
 v = interp1(soc_list, V_oc, inp.X{1},'linear*','extrap');
-% Battery current
-Ib  =   e .* (v-sqrt(v.^2 - 4.*r.*Pm))./(2.*r);
+% Battery current, max 60% recovery
+Ib  = ((Pm<=0).*0.6 + (Pm>0)) .* e .* (v-sqrt(v.^2 - 4.*r.*Pm))./(2.*r);
 % New battery state of charge
 X{1}  = - Ib / (6*par.n_p* 3600) + inp.X{1};
 % Battery power consumption
 Pb =   Ib .* v;
 % Update infeasible 
-inb = (v.^2 < 4.*r.*Pm) + (abs(Ib)>im);
+inb = (v.^2 < 4.*r.*Pm);
 % Set new state of charge to real values
 X{1} = (conj(X{1})+X{1})/2;
 Pb   = (conj(Pb)+Pb)/2;
