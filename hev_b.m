@@ -15,25 +15,9 @@ function [X C I out] = hev_b(inp,par)
 %   I     = infeasible matrix
 %   out   = user defined output signals
 
-
-% Wheel speed (rad/s)
-wv  = inp.W{1} ./ 0.28;
-% Wheel acceleration (rad/s^2)
-dwv = inp.W{2} ./ 0.28;
-% Wheel torque (Nm) friction + air + 
-Tv = (par.m_v*par.c_r*par.g + 0.5*par.rho*par.Af*par.c_d.*inp.W{1}.^2 + par.m_v.*inp.W{2}) .* par.R_w;
-
-% TRANSMISSION
-%   gearbox efficiency = 0.95
-% gear ratios
-r_gear =  [ 17.7305    6.4475    3.9401    2.8369    2.2163    1.8185];
-% Crankshaft speed (rad/s)
-wg  = (inp.W{3}>0) .* r_gear(inp.W{3} + (inp.W{3}==0)) .* wv;
-% Crankshaft acceleration (rad/s^2)
-dwg = (inp.W{3}>0) .* r_gear(inp.W{3} + (inp.W{3}==0)) .* dwv;
-% Crankshaft torque (Nm)
-Tg  = (inp.W{3}>0) .* (Tv>0)  .* Tv ./ r_gear(inp.W{3} + (inp.W{3}==0)) ./ 0.95...
-    + (inp.W{3}>0) .* (Tv<=0) .* Tv ./ r_gear(inp.W{3} + (inp.W{3}==0)) .* 0.95;
+%define inputs
+wg = inp.W{1};
+Tg = inp.W{2};
 
 % TORQUE SPLIT
 %   engine inertia = 0.1 m
@@ -80,7 +64,7 @@ w_eng(w_eng<=100) = 100;
 w_eng(w_eng>=471) = 471;
 
 T_eng = Te;
-T_eng(T_eng<=15) = 15;
+T_eng(T_eng<=15.*par.scale_eng) = 15*par.scale_eng;
 % fuel consumption map in g/s
 [T,w]=meshgrid(fc_map_trq*par.scale_eng,fc_map_spd);
 fc_map_kW=T.*w/1000;
@@ -148,8 +132,6 @@ R_chg    = [0.0235	0.0220	0.0205	0.0198	0.0198	0.0196	0.0198	0.0197	0.0203	0.020
 V_oc     = [7.2370	7.4047	7.5106	7.5873	7.6459	7.6909	7.7294	7.7666	7.8078	7.9143	8.3645]*par.n_s; % volt
 
 % Battery efficiency
-% columbic efficiency (0.9050 when charging)
-e = (Pm>0) + (Pm<=0) .* 0.9050;
 % Battery internal resistance
 r = (Pm>0)  .* interp1(soc_list, R_dis, inp.X{1},'linear*','extrap')...
   + (Pm<=0) .* interp1(soc_list, R_chg, inp.X{1},'linear*','extrap');
@@ -162,7 +144,7 @@ im = (Pm>0) .* 63*par.n_p + (Pm<=0) .* 60*par.n_p;
 % Battery voltage
 v = interp1(soc_list, V_oc, inp.X{1},'linear*','extrap');
 % Battery current, max 60% recovery
-Ib  = ((Pm<=0).*0.6 + (Pm>0)) .* e .* (v-sqrt(v.^2 - 4.*r.*Pm))./(2.*r);
+Ib  = ((Ttot<=0).*0.6 + (Ttot>0)) .* (v-sqrt(v.^2 - 4.*r.*Pm))./(2.*r);
 % New battery state of charge
 X{1}  = - Ib / (6*par.n_p* 3600) + inp.X{1};
 % Battery power consumption
@@ -190,7 +172,6 @@ out.Ib = Ib;
 out.Pb = Pb;
 out.Tema = Te_max;
 out.m_dot_fuel = m_dot_fuel;
-out.wv = wv;
 out.Ttot = Ttot;
 out.w_eng = w_eng;
 

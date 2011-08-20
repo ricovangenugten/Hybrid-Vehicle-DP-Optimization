@@ -4,13 +4,40 @@
 clear all; close all; clc
 
 % load file
-results_file = 'output/results_0.84.mat'
+results_file = 'output/results_0.85_15x16_o_c.mat'
 load(results_file);
 
 % load engine model
 run FC_CI67;
 
+time = [1:1878];
+t = [1:1877];
+
 % Figures
+
+% Shifting
+figure;
+subplot(411);
+plot(t, cycle.wheel_speed*3.6);
+xlabel('time [s]');
+ylabel('vehicle speed [km/h]');
+
+subplot(412);
+plot(t, cycle.crankshaft_speed/2/pi*60);
+xlabel('time [s]');
+ylabel('crankshaft speed [rpm]');
+
+subplot(413);
+plot(t, cycle.crankshaft_torque);
+grid;
+xlabel('t [s]'); 
+ylabel('crankshaft torque [Nm]');
+
+subplot(414);
+plot(t, cycle.gearnumbers);
+grid;
+xlabel('t [s]'); 
+ylabel('gear number');
 
 % SOC
 figure
