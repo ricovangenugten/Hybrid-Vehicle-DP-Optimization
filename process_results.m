@@ -4,7 +4,32 @@
 clear all; close all; clc
 
 % load file
-results_file = 'output/results_0.85_15x16_o_c.mat'
+% results_file = 'output/results_7.3e-06_15x1_o_c.mat'
+% results_file = 'output/results_0.081_15x1_o_c.mat'
+% results_file = 'output/results_0.18_15x3_o_c.mat'
+% results_file = 'output/results_0.27_15x5_o_c.mat'
+% results_file = 'output/results_0.37_15x7_o_c.mat'
+% results_file = 'output/results_0.46_15x9_o_c.mat'
+% results_file = 'output/results_0.56_15x11_o_c.mat'
+% results_file = 'output/results_0.65_15x13_o_c.mat'
+% results_file = 'output/results_0.75_15x14_o_c.mat'
+% results_file = 'output/results_0.85_15x16_o_c.mat'
+
+% results_file = 'output/results_7.3e-06_15x1_f_c.mat'
+% results_file = 'output/results_0.081_15x1_f_c.mat'
+% results_file = 'output/results_0.18_15x3_f_c.mat'
+% results_file = 'output/results_0.27_15x5_f_c.mat'
+% results_file = 'output/results_0.37_15x7_f_c.mat'
+% results_file = 'output/results_0.46_15x9_f_c.mat'
+% results_file = 'output/results_0.56_15x11_f_c.mat'
+% results_file = 'output/results_0.65_15x13_f_c.mat'
+% results_file = 'output/results_0.75_15x14_f_c.mat'
+% results_file = 'output/results_0.85_15x16_f_c.mat'
+
+% results_file = 'output/results_0.46_15x9_o_n.mat'
+% results_file = 'output/results_0.46_15x9_f_n.mat'
+
+
 load(results_file);
 
 % load engine model

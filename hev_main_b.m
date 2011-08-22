@@ -29,12 +29,21 @@ par.t_slip = 0.2;  % slip time when shifting [s]
 
 %% Vehicles definition
 %                     [smallest ice                    baseline]   
-vehicles.Peng =       [  20  33  46  59  72	85  98 111 124	137  72  72   ];
-vehicles.Pmot =       [ 111  98  87  74  62	49  37	24	11 1e-3  62  62   ];
-vehicles.n_s =        [  15  15  15  15  15  15  15  15  15   15  15  15  ];
-vehicles.n_p =        [  16  14  13  11	 9   7	 5	 3	 1	  1   9   9   ];
-vehicles.shift =      [  'o' 'o' 'o' 'o' 'o' 'o' 'o' 'o' 'o'  'o' 'o' 'f' ];
-vehicles.clutchloss = [  'c' 'c' 'c' 'c' 'c' 'c' 'c' 'c' 'c'  'c' 'n' 'c' ];
+%vehicles.Peng =       [  20  33  46  59  72	85  98 111 124	137  72  ];
+%vehicles.Pmot =       [ 111  98  87  74  62	49  37	24	11 1e-3  62  ];
+%vehicles.n_s =        [  15  15  15  15  15  15  15  15  15   15  15 ];
+%vehicles.n_p =        [  16  14  13  11	 9   7	 5	 3	 1	  1   9  ];
+%vehicles.shift =      [  'o' 'o' 'o' 'o' 'o' 'o' 'o' 'o' 'o'  'o' 'o'];
+%vehicles.clutchloss = [  'c' 'c' 'c' 'c' 'c' 'c' 'c' 'c' 'c'  'c' 'n'];
+
+vehicles.Peng =       [  20  33  46  59  72	85  98 111 124	137  72  ];
+vehicles.Pmot =       [ 111  98  87  74  62	49  37	24	11 1e-3  62  ];
+vehicles.n_s =        [  15  15  15  15  15  15  15  15  15   15  15 ];
+vehicles.n_p =        [  16  14  13  11	 9   7	 5	 3	 1	  1   9  ];
+vehicles.shift =      [  'f' 'f' 'f' 'f' 'f' 'f' 'f' 'f' 'f'  'f' 'f'];
+vehicles.clutchloss = [  'c' 'c' 'c' 'c' 'c' 'c' 'c' 'c' 'c'  'c' 'n'];
+
+
 
 %vehicles.Peng =       [ 20 ];
 %vehicles.Pmot =       [111 ];
@@ -200,7 +209,7 @@ for k=[1:length(vehicles.Pmot)]
       % clutch loss
       if par.clutchloss == 'c' && gearnumber_vector(i-1) ~= 0 && gearnumber_vector(i) ~= 0
         Tc = abs((gears(gearnumber_vector(i-1))^2 - gears(gearnumber_vector(i))^2)*Tv(i))*par.t_slip / ...
-          (6*gears(gearnumber_vector(i-1))*gears(gearnumber_vector(i)))
+          (6*gears(gearnumber_vector(i-1))*gears(gearnumber_vector(i)));
         
         Tv(i) = Tv(i) + Tc;  
       end
